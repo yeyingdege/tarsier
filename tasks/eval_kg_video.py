@@ -14,7 +14,11 @@ from tasks.utils import load_model_and_processor
 
 QUESTION_TYPES = ['qa1_step2tool', 'qa2_bestNextStep', 'qa3_nextStep',
                   'qa4_step','qa5_task', 'qa6_precedingStep', 'qa7_bestPrecedingStep',
-                  'qa8_toolNextStep', 'qa9_bestInitial','qa10_bestFinal', 'qa11_domain']
+                  'qa8_toolNextStep', 'qa9_bestInitial','qa10_bestFinal', 'qa11_domain',
+                  'qa12_toolPurpose', 'qa13_actionPurpose', 'qa14_objectPurpose',
+                  'qa15_ToolOtherPurpose', 'qa16_ObjectOtherPurpose', 'qa17_AlternativeTool',
+                  'qa18_AlternativeObject', 'qa19_TaskSameToolSamePurpose',
+                  'qa20_TaskSameObjectSamePurpose']
 
 
 
@@ -25,14 +29,15 @@ def load_video(video_path, num_segments=8, start_secs=-1, end_secs=-1, return_ms
                         start_secs=start_secs, end_secs=end_secs,
                         num_video_frames=num_segments)
 
-    frames = vr.get_batch(frame_indices)
+    frames = vr.get_batch(frame_indices).asnumpy()
     # print(frames.shape)
     if frames.shape[0] != num_segments:
-        num_concat_frames = num_segments - frames.shape[0]
+        print('Concat frames...')
+        frames = torch.from_numpy(frames)
+        num_concat_frames = max(num_segments - frames.shape[0], 0)
         concat_frames = torch.zeros((num_concat_frames, frames.shape[1], frames.shape[2], frames.shape[3])).type_as(frames).to(frames.device)
-        frames = torch.cat([frames, concat_frames], dim=0)
+        frames = torch.cat([frames, concat_frames], dim=0).numpy()
 
-    frames = frames.asnumpy()
     frames = [Image.fromarray(v.astype('uint8')) for v in frames]
 
     if return_msg:
@@ -54,7 +59,8 @@ def process_one(model, processor, prompt, video_file, generate_kwargs,
     # print('start_secs', start_secs, 'end_secs', end_secs, msg)
     inputs = processor(prompt, images=frames, edit_prompt=True, return_prompt=True)
     if 'prompt' in inputs:
-        print(f"Prompt: {inputs.pop('prompt')}")
+        # print(f"Prompt: {inputs.pop('prompt')}")
+        inputs.pop('prompt')
     inputs = {k:v.to(model.device) for k,v in inputs.items() if v is not None}
     outputs = model.generate(
         **inputs,
@@ -145,7 +151,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default="omni-research/Tarsier-7b")
     parser.add_argument("--image-folder", type=str, default="data/COIN/videos")
-    parser.add_argument("--question-file", type=str, default="data/testing_vqa.json")
+    parser.add_argument("--question-file", type=str, default="data/testing_vqa20.json")
     parser.add_argument("--answers-file", type=str, default="data/answers_tarsier7b_f8.json")
     parser.add_argument("--temperature", type=float, default=0)
     parser.add_argument("--top_p", type=float, default=None)

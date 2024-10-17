@@ -2,4 +2,4 @@ __pycache__/
 tmp*
 data/COIN
 data/kgvqa
-data/testing_vqa.json
+*.json
